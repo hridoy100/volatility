@@ -44,6 +44,42 @@ environment, run this command from this folder in your training job:
 python -u train.py --epochs 25 --output-dir outputs
 ```
 
+If the log reports `PyTorch 2.14.1+cu130 | cpu` and says the NVIDIA driver is
+too old, stop the CPU run. In the same Python environment, install the CUDA
+12.6 builds of the pinned packages:
+
+```bash
+python -m pip install --upgrade torch==2.14.1+cu126 torchvision==0.29.1+cu126 --index-url https://download.pytorch.org/whl/cu126
+```
+
+These builds are listed in the official [PyTorch](https://download.pytorch.org/whl/cu126/torch/)
+and [torchvision](https://download.pytorch.org/whl/cu126/torchvision/) wheel indexes.
+[NVIDIA's compatibility table](https://docs.nvidia.com/deploy/cuda-compatibility/minor-version-compatibility.html)
+allows CUDA 12.x minor-version compatibility on supported drivers starting at
+525, with feature limitations. CUDA 13.x requires driver 580 or newer. GPU model
+support and the actual driver still need to be checked on your assigned node.
+
+Inside your allocated GPU job, verify the environment and a GPU convolution:
+
+```bash
+nvidia-smi
+python - <<'PY'
+import torch
+
+print("PyTorch:", torch.__version__, "CUDA runtime:", torch.version.cuda)
+assert torch.cuda.is_available(), "CUDA is unavailable in this environment"
+print("GPU:", torch.cuda.get_device_name(0))
+layer = torch.nn.Conv2d(3, 8, kernel_size=3).cuda()
+images = torch.randn(2, 3, 32, 32, device="cuda")
+layer(images).sum().backward()
+torch.cuda.synchronize()
+print("GPU forward and backward pass succeeded")
+PY
+```
+
+After this succeeds, rerun the training command. Its startup line should report
+`cuda`. The script already moves the model and each batch to that device.
+
 The trained checkpoint is saved as **`outputs/best_model.pt`**. It is updated
 whenever validation loss improves, so a completed best checkpoint is available
 before the entire run finishes. It contains the weights and metadata for the
