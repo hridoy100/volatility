@@ -16,7 +16,14 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
 # Keep full debug information even when an existing build directory used Release.
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(cifar10_inference PRIVATE -g3 -O0 -fno-omit-frame-pointer)
+    target_compile_options(cifar10_inference PRIVATE
+        -g3 -O0 -fno-omit-frame-pointer -fno-eliminate-unused-debug-types)
+    # The prebuilt library may omit types that GDB needs to inspect its objects.
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+        target_compile_options(cifar10_inference PRIVATE -femit-class-debug-always)
+    else()
+        target_compile_options(cifar10_inference PRIVATE -fstandalone-debug)
+    endif()
 elseif(MSVC)
     target_compile_options(cifar10_inference PRIVATE /Zi /Od)
     target_link_options(cifar10_inference PRIVATE /DEBUG:FULL)

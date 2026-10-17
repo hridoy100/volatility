@@ -1,7 +1,10 @@
 .venv/
 __pycache__/
 data/
+cpp/build-apptainer/
+*.sif
 outputs/history.csv
 outputs/smoke_test/
 outputs/cpp_predictions.csv
 outputs/cpp_predictions_gdb.csv
+outputs/gdb_inspection.log

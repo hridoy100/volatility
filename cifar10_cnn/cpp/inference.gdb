@@ -1,4 +1,5 @@
 # Run from cifar10_cnn: gdb -x cpp/inference.gdb ./cpp/build/cifar10_inference
+# Apptainer build: gdb -x cpp/inference.gdb ./cpp/build-apptainer/cifar10_inference
 set pagination off
 set print pretty on
 set args outputs/cifar10_torchscript.pt data/cifar10_test.bin outputs/cpp_predictions_gdb.csv

@@ -9,6 +9,43 @@ are pinned to [PyTorch 2.14.1](https://github.com/pytorch/pytorch/releases/tag/v
 and [torchvision 0.29.1](https://github.com/pytorch/vision/releases/tag/v0.29.1),
 the latest stable releases checked on October 16, 2026.
 
+## Assignment workflow
+
+1. **Build and train a custom CNN.** Define the network directly with
+   `torch.nn` in [train.py](train.py), using no prebuilt architectures or
+   pretrained weights. Follow the
+   [PyTorch 60 Minute Blitz](https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html)
+   for the training workflow. Use CIFAR-10 with an 80/10/10 split: 48,000
+   training images, 6,000 validation images, and 6,000 test images. Use the
+   most recent stable PyTorch release at setup time and record its version;
+   the versions used for this project are pinned above. Python must be newer
+   than 3.9; this implementation requires Python 3.10 or newer. Save the best
+   trained checkpoint as `outputs/best_model.pt`.
+
+2. **Export the trained model for C++.** Follow the TorchScript workflow in
+   the [C++ export tutorial](https://docs.pytorch.org/tutorials/advanced/cpp_export.html).
+   Run [export_model.py](export_model.py) to load the trained checkpoint,
+   script the model, and save `outputs/cifar10_torchscript.pt`. This archive
+   contains the model code and weights needed by `torch::jit::load`.
+
+3. **Build a C++ inference executable with full debugging information.**
+   Use [cpp/main.cpp](cpp/main.cpp) to load the TorchScript archive and run
+   inference on the held-out test images prepared by
+   [prepare_test_images.py](prepare_test_images.py). Configure a Debug build
+   using [cpp/CMakeLists.txt](cpp/CMakeLists.txt), which explicitly enables
+   full debug information and disables optimization. On Argon, the completed
+   Apptainer build produced `cpp/build-apptainer/cifar10_inference`.
+
+4. **Inspect inference using GDB.** Start GDB with the executable, set the
+   model and test-image arguments, and break on the model's forward call:
+   `auto logits = model.forward({images}).toTensor();`. Run the program and
+   use `next` to execute that call. In the completed Argon session, GDB
+   stopped at line 91 and advanced to line 92 after the forward pass. Follow
+   the [Apptainer and GDB guide](ARGON.md) for the commands and recorded output.
+   Then [inspect the PID, object addresses, layer descriptions, and weight
+   storage](GDB_INSPECTION.md), using the PyTorch GitHub commit matching the
+   container's actual library version.
+
 ## Run
 
 From this folder:
@@ -35,6 +72,14 @@ This is only a quick check; train for the full run before reporting final result
 Use `--workers 0` if your environment has trouble with multiprocessing.
 
 ## Training on Argon
+
+The C++ build and GDB inspection were completed inside Apptainer. See
+[Argon: Apptainer build and GDB](ARGON.md) for that workflow and the runtime
+library issue encountered during native setup. The guide records the exact
+`pytorch-cuda12.6.sif` path, its NVIDIA `24.10-py3` source, and the launch
+command. That base image ships an older PyTorch version than the training
+environment recorded here; check the container's actual version when
+reproducing the build.
 
 Create the Python environment on Argon using the setup steps above; copy the
 source files rather than the Mac's `.venv` folder. After activating that
@@ -141,6 +186,10 @@ Accuracy values in the saved files are fractions between 0 and 1. Console output
 shows percentages. The seed fixes the split and random initialization; small
 numerical differences can still occur across devices and PyTorch backends.
 
+The recorded 25-epoch Argon run used Python 3.10.8 and PyTorch 2.14.1+cu126.
+Its held-out test accuracy was **87.08%** (5,225 of 6,000 images), as recorded
+in [outputs/metrics.json](outputs/metrics.json).
+
 ## Export to TorchScript and load from C++
 
 After training, export the saved checkpoint from this folder:
@@ -179,8 +228,11 @@ cmake --build cpp/build --config Debug --parallel 2
 ```
 
 The CMake configuration defaults to Debug and explicitly adds `-g3`, `-O0`,
-and `-fno-omit-frame-pointer` for GCC and Clang. These target flags also apply
-when reusing an older Release build directory. On Windows it uses `/Zi`,
+and `-fno-omit-frame-pointer` for GCC and Clang. It retains unused debug types
+and requests complete class definitions with `-femit-class-debug-always`
+on GCC or `-fstandalone-debug` on Clang, so GDB can inspect PyTorch types
+defined in the headers. These target flags also apply when reusing an older
+Release build directory. On Windows it uses `/Zi`,
 `/Od`, and `/DEBUG:FULL`. On macOS the build also generates
 `cifar10_inference.dSYM`. Keep that bundle alongside the executable when
 debugging. The application has full debug information; the prebuilt LibTorch
@@ -244,9 +296,12 @@ On Linux, use the same program arguments with `gdb --args`, followed by
 
 ### Inspect the forward pass with GDB on Argon
 
-Use the Debug executable built on Argon; a macOS executable cannot run on its
-Linux nodes. Apply the working Argon module, Python, and C++ runtime setup
-before launching the debugger. From `cifar10_cnn`, start:
+For the completed Apptainer workflow, use the container executable at
+`cpp/build-apptainer/cifar10_inference` and follow [ARGON.md](ARGON.md).
+That guide includes installing GDB when the container does not provide it.
+
+For a native Linux build with GDB already installed, run this from
+`cifar10_cnn` in the same environment used to build the executable:
 
 ```bash
 gdb -x cpp/inference.gdb ./cpp/build/cifar10_inference
@@ -273,6 +328,7 @@ Inspect the current batch at the GDB prompt:
 At the first forward pass, `start` should be 0, `end` 128, and `total` 6000.
 `next` executes the forward call and advances to the prediction line, where
 `logits` has been assigned. `continue` runs to the next batch's breakpoint.
-To finish without stopping at each batch, use `disable breakpoints`, then
-`continue`. Debugger-run predictions go to `outputs/cpp_predictions_gdb.csv`.
+To finish without stopping at each batch, use `disable 1`, then `continue`,
+entering each command separately at the GDB prompt.
+Debugger-run predictions go to `outputs/cpp_predictions_gdb.csv`.
 If `main.cpp` changes, update the breakpoint line in `cpp/inference.gdb`.
