@@ -58,3 +58,12 @@ nosetests.xml
 *.bin
 *.001
 *.raw
+
+# Local Python environments and caches
+.venv/
+.venv-*/
+__pycache__/
+
+# CIFAR-10 runs started from the repository root
+/data/
+/outputs/

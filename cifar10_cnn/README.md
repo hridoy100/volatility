@@ -140,3 +140,87 @@ The script saves three files in `outputs/`:
 Accuracy values in the saved files are fractions between 0 and 1. Console output
 shows percentages. The seed fixes the split and random initialization; small
 numerical differences can still occur across devices and PyTorch backends.
+
+## Export to TorchScript and load from C++
+
+After training, export the saved checkpoint from this folder:
+
+```bash
+python export_model.py --checkpoint outputs/best_model.pt --output outputs/cifar10_torchscript.pt
+```
+
+`best_model.pt` is a Python training checkpoint containing a state dictionary.
+`cifar10_torchscript.pt` contains the compiled model code, trained weights, and
+class names. Load the latter with `torch::jit::load` in C++; it does not need
+Python or `train.py` at inference time.
+
+The exporter loads GPU-trained weights onto the CPU, calls `eval()` to disable
+dropout and use batch normalization's saved statistics, scripts the custom
+network with `torch.jit.script`, and saves it with `torch.jit.save`. It then
+reloads the archive and checks its outputs against the original model for
+batch sizes 1 and 4. It does not retrain the network or download CIFAR-10.
+
+This follows the TorchScript serialization and C++ loading workflow from the
+[C++ export tutorial](https://docs.pytorch.org/tutorials/advanced/cpp_export.html).
+That page now marks TorchScript deprecated; this project uses it to meet the
+assignment's explicit TorchScript requirement.
+
+### Build the C++ executable
+
+Use LibTorch 2.14.1, CMake 3.18 or newer, and a C++20-capable compiler. The
+installed PyTorch package includes the LibTorch headers, libraries, and CMake
+configuration, so you can build against the active Python environment:
+
+```bash
+python -m pip install cmake
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')"
+cmake --build cpp/build --config Release --parallel 2
+```
+
+The CMake setup follows the [official LibTorch installation guide](https://docs.pytorch.org/cppdocs/installing.html).
+Build on the machine where you plan to run the executable. On Argon, the GCC
+9.5 runtime that fixed Python imports does not by itself establish compiler
+compatibility with PyTorch 2.14.1's C++20 headers. Use a compatible newer
+compiler/toolchain for this build. If linking against a CUDA-enabled PyTorch
+installation, CMake may also require a matching CUDA toolkit; a matching
+CPU-only LibTorch distribution avoids that build dependency for this CPU
+inference example. For a standalone LibTorch installation, set
+`CMAKE_PREFIX_PATH` to its absolute directory instead.
+
+Run a basic forward-pass check:
+
+```bash
+./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt
+```
+
+This uses a synthetic `[1, 3, 32, 32]` tensor of ones and prints the ten logits
+and predicted class. It checks model loading and execution, not accuracy.
+
+### Classify an actual CIFAR-10 image
+
+The C++ program also accepts the original CIFAR binary batch format. The
+Python download uses pickle batch files, so create a small compatible batch
+from its cached test images first:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from torchvision.datasets import CIFAR10
+
+dataset = CIFAR10("data", train=False, download=False)
+with Path("cpp/build/example_batch.bin").open("wb") as file:
+    for image, label in zip(dataset.data[:10], dataset.targets[:10]):
+        file.write(bytes([label]))
+        file.write(image.transpose(2, 0, 1).tobytes())
+PY
+
+./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt cpp/build/example_batch.bin 0
+```
+
+The last argument selects a zero-based record in the file; use 0 through 9
+for this ten-image example. The C++ code converts RGB bytes into a float tensor
+with NCHW layout and applies the same `(pixel / 255 - 0.5) / 0.5` normalization
+used during training. It prints the predicted and actual class. This is an
+inference example; its examples come from CIFAR-10's original test batch,
+which differs from this project's custom held-out split.

@@ -2,3 +2,4 @@
 __pycache__/
 data/
 outputs/history.csv
+outputs/smoke_test/
