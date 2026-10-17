@@ -1,6 +1,8 @@
 #include <torch/script.h>
 
-#include <array>
+#include <algorithm>
+#include <cstdint>
+#include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -9,10 +11,44 @@
 #include <string>
 #include <vector>
 
+struct TestImages {
+    torch::Tensor pixels;
+    torch::Tensor labels;
+};
+
+TestImages read_test_images(const std::string& path) {
+    constexpr std::int64_t record_size = 1 + 3 * 32 * 32;
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file) {
+        throw std::runtime_error("Cannot open test images: " + path);
+    }
+    const std::streamoff byte_count = file.tellg();
+    if (byte_count <= 0 || byte_count % record_size != 0) {
+        throw std::runtime_error("Test file must contain complete 3073-byte CIFAR records.");
+    }
+
+    std::vector<unsigned char> bytes(static_cast<std::size_t>(byte_count));
+    file.seekg(0);
+    file.read(reinterpret_cast<char*>(bytes.data()), byte_count);
+    if (file.gcount() != byte_count) {
+        throw std::runtime_error("Could not read the complete test file.");
+    }
+
+    const std::int64_t count = byte_count / record_size;
+    // Clone so the tensors own their storage after the byte vector goes away.
+    auto records = torch::from_blob(bytes.data(), {count, record_size}, torch::kUInt8).clone();
+    auto labels = records.select(1, 0).to(torch::kInt64);
+    if (labels.max().item<int>() >= 10) {
+        throw std::runtime_error("Test file contains an invalid CIFAR class label.");
+    }
+    auto pixels = records.slice(1, 1).reshape({count, 3, 32, 32});
+    return {pixels, labels};
+}
+
 int main(int argc, char* argv[]) {
-    if (argc != 2 && argc != 4) {
+    if (argc != 4) {
         std::cerr << "Usage: " << argv[0]
-                  << " model.pt [cifar_batch_file image_index]\n";
+                  << " model.pt test_images.bin predictions.csv\n";
         return 1;
     }
 
@@ -32,50 +68,53 @@ int main(int argc, char* argv[]) {
             throw std::runtime_error("Expected the 10 class names saved by export_model.py.");
         }
 
-        auto input = torch::ones({1, 3, 32, 32}, torch::kFloat32);
-        int expected_label = -1;
-        if (argc == 4) {
-            std::size_t parsed = 0;
-            const std::string index_text = argv[3];
-            const int index = std::stoi(index_text, &parsed);
-            if (parsed != index_text.size() || index < 0 || index >= 10000) {
-                throw std::invalid_argument("Image index must be between 0 and 9999.");
-            }
+        const auto test = read_test_images(argv[2]);
+        const auto output_path = std::filesystem::weakly_canonical(argv[3]);
+        if (output_path == std::filesystem::canonical(argv[1]) ||
+            output_path == std::filesystem::canonical(argv[2])) {
+            throw std::invalid_argument("Predictions must not overwrite the model or test images.");
+        }
+        std::ofstream output(output_path);
+        if (!output) {
+            throw std::runtime_error("Cannot open the predictions CSV for writing.");
+        }
+        output << "image_index,actual_label,predicted_label,actual_class,predicted_class,confidence,correct\n";
+        output << std::fixed << std::setprecision(8);
 
-            // CIFAR's binary format stores one label followed by planar RGB bytes.
-            std::ifstream batch(argv[2], std::ios::binary);
-            if (!batch) {
-                throw std::runtime_error("Cannot open the CIFAR binary batch file.");
-            }
-            std::array<unsigned char, 1 + 3 * 32 * 32> record{};
-            batch.seekg(static_cast<std::streamoff>(index) * record.size());
-            batch.read(reinterpret_cast<char*>(record.data()), record.size());
-            if (batch.gcount() != static_cast<std::streamsize>(record.size())) {
-                throw std::runtime_error("The requested image is missing or incomplete.");
-            }
-            expected_label = record[0];
-            if (expected_label >= 10) {
-                throw std::runtime_error("Invalid CIFAR class label.");
-            }
+        constexpr std::int64_t batch_size = 128;
+        const std::int64_t total = test.labels.size(0);
+        std::int64_t correct = 0;
+        for (std::int64_t start = 0; start < total; start += batch_size) {
+            const auto end = std::min(start + batch_size, total);
+            auto images = test.pixels.slice(0, start, end).to(torch::kFloat32);
+            images = (images / 255.0 - 0.5) / 0.5;
+            auto logits = model.forward({images}).toTensor();
+            auto predictions = logits.argmax(1);
+            auto confidence = logits.softmax(1).gather(1, predictions.unsqueeze(1)).squeeze(1);
 
-            input = torch::from_blob(record.data() + 1, {1, 3, 32, 32}, torch::kUInt8)
-                        .to(torch::kFloat32);
-            input = (input / 255.0 - 0.5) / 0.5;
-        } else {
-            std::cout << "Input: synthetic tensor of ones (pipeline check only)\n";
+            for (std::int64_t row = 0; row < end - start; ++row) {
+                const auto index = start + row;
+                const int actual = test.labels[index].item<int>();
+                const int predicted = predictions[row].item<int>();
+                const bool matches = actual == predicted;
+                correct += matches;
+                output << index << ',' << actual << ',' << predicted << ','
+                       << classes.at(actual) << ',' << classes.at(predicted) << ','
+                       << confidence[row].item<float>() << ',' << matches << '\n';
+                if (index < 10) {
+                    std::cout << "Image " << index << ": predicted=" << classes.at(predicted)
+                              << ", actual=" << classes.at(actual) << '\n';
+                }
+            }
         }
 
-        auto logits = model.forward({input}).toTensor();
-        const int prediction = logits.argmax(1).item<int>();
-        std::cout << "Logits:" << std::setprecision(9);
-        for (int i = 0; i < 10; ++i) {
-            std::cout << ' ' << logits[0][i].item<float>();
+        output.flush();
+        if (!output) {
+            throw std::runtime_error("Writing the predictions CSV failed.");
         }
-        std::cout << "\nPredicted class: " << classes.at(prediction)
-                  << " (" << prediction << ")\n";
-        if (expected_label >= 0) {
-            std::cout << "Actual class: " << classes.at(expected_label) << '\n';
-        }
+        std::cout << "Test images: " << total << "\nCorrect: " << correct << '/' << total
+                  << "\nAccuracy: " << std::fixed << std::setprecision(2)
+                  << 100.0 * correct / total << "%\nPredictions: " << output_path << '\n';
     } catch (const std::exception& error) {
         std::cerr << "Inference failed: " << error.what() << '\n';
         return 1;

@@ -173,10 +173,18 @@ configuration, so you can build against the active Python environment:
 
 ```bash
 python -m pip install cmake
-cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Release \
+cmake -S cpp -B cpp/build -DCMAKE_BUILD_TYPE=Debug \
   -DCMAKE_PREFIX_PATH="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')"
-cmake --build cpp/build --config Release --parallel 2
+cmake --build cpp/build --config Debug --parallel 2
 ```
+
+The CMake configuration defaults to Debug and explicitly adds `-g3`, `-O0`,
+and `-fno-omit-frame-pointer` for GCC and Clang. These target flags also apply
+when reusing an older Release build directory. On Windows it uses `/Zi`,
+`/Od`, and `/DEBUG:FULL`. On macOS the build also generates
+`cifar10_inference.dSYM`. Keep that bundle alongside the executable when
+debugging. The application has full debug information; the prebuilt LibTorch
+libraries retain the debug information provided by their distribution.
 
 The CMake setup follows the [official LibTorch installation guide](https://docs.pytorch.org/cppdocs/installing.html).
 Build on the machine where you plan to run the executable. On Argon, the GCC
@@ -188,39 +196,48 @@ CPU-only LibTorch distribution avoids that build dependency for this CPU
 inference example. For a standalone LibTorch installation, set
 `CMAKE_PREFIX_PATH` to its absolute directory instead.
 
-Run a basic forward-pass check:
+### Run inference on the held-out test set
+
+Prepare the exact test images identified by `split_indices["test"]` in the
+training checkpoint, using the cached CIFAR-10 data:
 
 ```bash
-./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt
+python prepare_test_images.py
 ```
 
-This uses a synthetic `[1, 3, 32, 32]` tensor of ones and prints the ten logits
-and predicted class. It checks model loading and execution, not accuracy.
+This writes all 6,000 held-out images to `data/cifar10_test.bin`. Each record
+contains one label byte followed by 3,072 RGB bytes in channel-first order.
+`data/cifar10_test.indices.json` records the original dataset indices in file
+order. The script checks that the test indices are unique and do not overlap
+the training or validation splits. It does not download any data.
 
-### Classify an actual CIFAR-10 image
-
-The C++ program also accepts the original CIFAR binary batch format. The
-Python download uses pickle batch files, so create a small compatible batch
-from its cached test images first:
+Run the C++ executable from this folder:
 
 ```bash
-python - <<'PY'
-from pathlib import Path
-from torchvision.datasets import CIFAR10
-
-dataset = CIFAR10("data", train=False, download=False)
-with Path("cpp/build/example_batch.bin").open("wb") as file:
-    for image, label in zip(dataset.data[:10], dataset.targets[:10]):
-        file.write(bytes([label]))
-        file.write(image.transpose(2, 0, 1).tobytes())
-PY
-
-./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt cpp/build/example_batch.bin 0
+./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt \
+  data/cifar10_test.bin outputs/cpp_predictions.csv
 ```
 
-The last argument selects a zero-based record in the file; use 0 through 9
-for this ten-image example. The C++ code converts RGB bytes into a float tensor
-with NCHW layout and applies the same `(pixel / 255 - 0.5) / 0.5` normalization
-used during training. It prints the predicted and actual class. This is an
-inference example; its examples come from CIFAR-10's original test batch,
-which differs from this project's custom held-out split.
+The program loads the TorchScript model and class names with
+`torch::jit::load`, uses evaluation mode with gradients disabled, and performs
+CPU inference in batches of 128. It converts RGB bytes to float tensors in
+NCHW layout and applies the training normalization `(pixel / 255 - 0.5) / 0.5`.
+The last batch may contain fewer images. The program prints the first ten
+predictions and overall test accuracy, then saves every prediction, actual
+class, confidence, and correctness to `outputs/cpp_predictions.csv`.
+
+CSV `image_index` values refer to record order in the binary file. Use the
+matching entry in `cifar10_test.indices.json` to find the original CIFAR-10
+image. Generated test files, build products, and the predictions CSV are
+ignored by Git.
+
+To debug the application on macOS:
+
+```bash
+lldb -- ./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt \
+  data/cifar10_test.bin outputs/cpp_predictions.csv
+```
+
+Then use `breakpoint set --name main --shlib cifar10_inference` and `run`.
+On Linux, use the same program arguments with `gdb --args`, followed by
+`break main` and `run`.
