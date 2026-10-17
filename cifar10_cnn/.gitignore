@@ -4,3 +4,4 @@ data/
 outputs/history.csv
 outputs/smoke_test/
 outputs/cpp_predictions.csv
+outputs/cpp_predictions_gdb.csv

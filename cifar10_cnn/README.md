@@ -241,3 +241,38 @@ lldb -- ./cpp/build/cifar10_inference outputs/cifar10_torchscript.pt \
 Then use `breakpoint set --name main --shlib cifar10_inference` and `run`.
 On Linux, use the same program arguments with `gdb --args`, followed by
 `break main` and `run`.
+
+### Inspect the forward pass with GDB on Argon
+
+Use the Debug executable built on Argon; a macOS executable cannot run on its
+Linux nodes. Apply the working Argon module, Python, and C++ runtime setup
+before launching the debugger. From `cifar10_cnn`, start:
+
+```bash
+gdb -x cpp/inference.gdb ./cpp/build/cifar10_inference
+```
+
+The command file sets the model, test-image, and output arguments, sets a
+breakpoint at `main.cpp:91`, and runs the program. It stops before this line:
+
+```cpp
+auto logits = model.forward({images}).toTensor();
+```
+
+Inspect the current batch at the GDB prompt:
+
+```text
+(gdb) list
+(gdb) print start
+(gdb) print end
+(gdb) print total
+(gdb) backtrace
+(gdb) next
+```
+
+At the first forward pass, `start` should be 0, `end` 128, and `total` 6000.
+`next` executes the forward call and advances to the prediction line, where
+`logits` has been assigned. `continue` runs to the next batch's breakpoint.
+To finish without stopping at each batch, use `disable breakpoints`, then
+`continue`. Debugger-run predictions go to `outputs/cpp_predictions_gdb.csv`.
+If `main.cpp` changes, update the breakpoint line in `cpp/inference.gdb`.
