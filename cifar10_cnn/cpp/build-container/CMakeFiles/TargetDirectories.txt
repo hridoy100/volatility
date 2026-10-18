@@ -1,0 +1,3 @@
+/workspace/cpp/build-container/CMakeFiles/cifar10_inference.dir
+/workspace/cpp/build-container/CMakeFiles/edit_cache.dir
+/workspace/cpp/build-container/CMakeFiles/rebuild_cache.dir
