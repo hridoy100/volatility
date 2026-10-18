@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
-data/
+/data/*
+!/data/cifar10_test.bin
 cpp/build-apptainer/
 *.sif
 outputs/history.csv
