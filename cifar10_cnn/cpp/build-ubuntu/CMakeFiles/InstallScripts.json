@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/raihan/Downloads/volatility/cifar10_cnn/cpp/build-ubuntu/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

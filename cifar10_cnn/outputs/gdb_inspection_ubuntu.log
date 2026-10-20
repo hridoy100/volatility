@@ -1,0 +1,196 @@
+  Num  Description       Connection           Executable        
+* 1    process 3183      1 (native)           /home/raihan/Downloads/volatility/cifar10_cnn/cpp/build-ubuntu/cifar10_inference 
+Inference PID: 3183
+$1 = 0xffffffffe588
+$2 = 0xaaaaae062af0
+$3 = 0xffffffffe4a8
+$4 = 0xaaaaadfce280
+/* offset      |    size */  type = struct c10::WeakOrStrongTypePtr {
+/*      0      |      48 */    struct c10::WeakOrStrongCompilationUnit {
+/*      0      |      24 */        class std::optional<std::shared_ptr<torch::jit::CompilationUnit> > [with _Tp = std::shared_ptr<torch::jit::CompilationUnit>] : private std::_Optional_base<_Tp, false, false>, private std::_Enable_copy_move<true, true, true, true, std::optional<_Tp> > {
+
+                                       /* total size (bytes):   24 */
+                                   } strong_ptr_;
+/*     24      |      24 */        class std::optional<std::weak_ptr<torch::jit::CompilationUnit> > [with _Tp = std::weak_ptr<torch::jit::CompilationUnit>] : private std::_Optional_base<_Tp, false, false>, private std::_Enable_copy_move<true, true, true, true, std::optional<_Tp> > {
+
+                                       /* total size (bytes):   24 */
+                                   } weak_ptr_;
+
+                                   /* total size (bytes):   48 */
+                               } cu_;
+/*     48      |      16 */    c10::TypePtr type_;
+
+                               /* total size (bytes):   64 */
+                             }
+/* offset      |    size */  type = struct c10::TensorImpl : public c10::intrusive_ptr_target {
+                             protected:
+                               static const char * const err_msg_tensor_metadata_change_not_allowed;
+/*     16      |       8 */    struct c10::Storage {
+                                 protected:
+/*     16      |       8 */        class c10::intrusive_ptr<c10::StorageImpl, c10::detail::intrusive_target_default_null_type<c10::StorageImpl> > [with T = c10::StorageImpl, NullType = c10::detail::intrusive_target_default_null_type<c10::StorageImpl>] {
+/*     16      |       8 */            T *target_;
+
+                                       /* total size (bytes):    8 */
+                                   } storage_impl_;
+
+                                   /* total size (bytes):    8 */
+                               } storage_;
+                             private:
+/*     24      |       8 */    std::unique_ptr<c10::AutogradMetaInterface> autograd_meta_;
+                             protected:
+/*     32      |       8 */    std::unique_ptr<c10::ExtraMeta> extra_meta_;
+/*     40      |       8 */    struct c10::VariableVersion {
+                                 private:
+/*     40      |       8 */        class c10::intrusive_ptr<c10::VariableVersion::VersionCounter, c10::detail::intrusive_target_default_null_type<c10::VariableVersion::VersionCounter> > [with T = c10::VariableVersion::VersionCounter, NullType = c10::detail::intrusive_target_default_null_type<c10::VariableVersion::VersionCounter>] {
+/*     40      |       8 */            T *target_;
+
+                                       /* total size (bytes):    8 */
+                                   } version_counter_;
+
+                                   /* total size (bytes):    8 */
+                               } version_counter_;
+/*     48      |       8 */    struct c10::impl::PyObjectSlot {
+                                 private:
+/*     48      |       8 */        struct std::atomic<_object*> [with _Tp = _object *] {
+/*     48      |       8 */            __base_type _M_b;
+                                       static const bool is_always_lock_free;
+
+                                       /* total size (bytes):    8 */
+                                   } pyobj_;
+
+                                   /* total size (bytes):    8 */
+                               } pyobj_slot_;
+/*     56      |      88 */    class c10::impl::SizesAndStrides {
+/*     56      |       8 */        size_t size_;
+/*     64      |      80 */        union {
+/*                     8 */            sizes_const_iterator outOfLineStorage_;
+/*                    80 */            int64_t inlineStorage_[10];
+/* XXX 72-byte padding   */
+
+                                       /* total size (bytes):   80 */
+                                   };
+
+                                   /* total size (bytes):   88 */
+                               } sizes_and_strides_;
+/*    144      |       8 */    int64_t storage_offset_;
+/*    152      |       8 */    int64_t numel_;
+/*    160      |       2 */    class caffe2::TypeMeta {
+                                   static uint16_t nextTypeIndex;
+/*    160      |       2 */        uint16_t index_;
+
+                                   /* total size (bytes):    2 */
+                               } data_type_;
+/*    162      |       3 */    class std::optional<c10::Device> [with _Tp = c10::Device] : private std::_Optional_base<_Tp, true, true>, private std::_Enable_copy_move<true, true, true, true, std::optional<_Tp> > {
+
+                                   /* total size (bytes):    3 */
+                               } device_opt_;
+/*    165: 0   |       1 */    bool is_contiguous_ : 1;
+/*    165: 1   |       1 */    bool storage_access_should_throw_ : 1;
+/*    165: 2   |       1 */    bool is_channels_last_ : 1;
+/*    165: 3   |       1 */    bool is_channels_last_contiguous_ : 1;
+/*    165: 4   |       1 */    bool is_channels_last_3d_ : 1;
+/*    165: 5   |       1 */    bool is_channels_last_3d_contiguous_ : 1;
+/*    165: 6   |       1 */    bool is_non_overlapping_and_dense_ : 1;
+/*    165: 7   |       1 */    bool is_wrapped_number_ : 1;
+/*    166: 0   |       1 */    bool allow_tensor_metadata_change_ : 1;
+/*    166: 1   |       1 */    bool reserved_ : 1;
+/*    166: 2   |       1 */    uint8_t sizes_strides_policy_ : 2;
+/*    166: 4   |       1 */    bool has_symbolic_sizes_strides_ : 1;
+/*    166: 5   |       1 */    uint8_t custom_sizes_strides_ : 2;
+/*    166: 7   |       1 */    bool device_policy_ : 1;
+/*    167: 0   |       1 */    bool layout_policy_ : 1;
+/*    167: 1   |       1 */    bool custom_device_ : 1;
+/*    167: 2   |       1 */    bool custom_layout_ : 1;
+/*    167: 3   |       1 */    uint8_t python_custom_sizes_strides_ : 2;
+/*    167: 5   |       1 */    bool python_custom_device_ : 1;
+/*    167: 6   |       1 */    bool python_custom_layout_ : 1;
+/* XXX  1-bit hole       */
+/*    168      |       8 */    class c10::DispatchKeySet {
+/*    168      |       8 */        uint64_t repr_;
+
+                                   /* total size (bytes):    8 */
+                               } key_set_;
+
+                               /* total size (bytes):  176 */
+                             }
+type = class c10::Type::SingletonOrSharedTypePtr<c10::Type> [with T = c10::Type] {
+/*      0      |      16 */    class std::shared_ptr<T> [with _Tp = T] : public std::__shared_ptr<T, (__gnu_cxx::_Lock_policy)2> {
+
+                                   /* total size (bytes):   16 */
+                               } repr_;
+
+                               /* total size (bytes):   16 */
+                             }
+$5 = {
+  repr_ = {
+    <std::__shared_ptr<c10::Type, (__gnu_cxx::_Lock_policy)2>> = {
+      <std::__shared_ptr_access<c10::Type, (__gnu_cxx::_Lock_policy)2, false, false>> = {<No data fields>}, 
+      members of std::__shared_ptr<c10::Type, (__gnu_cxx::_Lock_policy)2>:
+      _M_ptr = 0xaaaaadfb85f0,
+      _M_refcount = {
+        _M_pi = 0xaaaaadfced90
+      }
+    }, <No data fields>}
+}
+/* offset      |    size */  type = struct c10::StorageImpl : public c10::intrusive_ptr_target {
+                             private:
+/*     16      |      32 */    class c10::DataPtr {
+/*     16      |      24 */        class c10::detail::UniqueVoidPtr {
+/*     16      |       8 */            void *data_;
+/*     24      |      16 */            class std::unique_ptr<void, void (*)(void*)> [with _Tp = void, _Dp = void (*)(void *)] {
+/*     24      |      16 */                struct std::__uniq_ptr_data<_Tp, _Tp (*)(_Tp*), true, true> [with _Tp = _Tp, _Dp = _Dp] : public std::__uniq_ptr_impl<_Tp, _Tp (*)(_Tp*)> {
+
+                                               /* total size (bytes):   16 */
+                                           } _M_t;
+
+                                           /* total size (bytes):   16 */
+                                       } ctx_;
+
+                                       /* total size (bytes):   24 */
+                                   } ptr_;
+/*     40      |       2 */        struct c10::Device {
+                                     private:
+/*     40      |       1 */            Type type_;
+/*     41      |       1 */            c10::DeviceIndex index_;
+
+                                       /* total size (bytes):    2 */
+                                   } device_;
+/* XXX  6-byte padding   */
+
+                                   /* total size (bytes):   32 */
+                               } data_ptr_;
+/*     48      |       8 */    class c10::SymInt {
+                                   static const uint64_t MASK;
+                                   static const uint64_t IS_SYM;
+                                   static const int64_t MAX_UNREPRESENTABLE_INT;
+/*     48      |       8 */        int64_t data_;
+
+                                   /* total size (bytes):    8 */
+                               } size_bytes_;
+/*     56      |       1 */    bool size_bytes_is_heap_allocated_;
+/*     57      |       1 */    bool resizable_;
+/*     58      |       1 */    bool received_cuda_;
+/*     59      |       1 */    bool has_mutable_data_ptr_check_;
+/*     60      |       1 */    bool throw_on_mutable_data_ptr_;
+/*     61      |       1 */    bool throw_on_immutable_data_ptr_;
+/*     62      |       1 */    bool warn_deprecated_on_mutable_data_ptr_;
+/* XXX  1-byte hole      */
+/*     64      |       8 */    c10::MaterializeFn materialize_fn_;
+/*     72      |       8 */    c10::Allocator *allocator_;
+/*     80      |       8 */    struct c10::impl::PyObjectSlot {
+                                 private:
+/*     80      |       8 */        struct std::atomic<_object*> [with _Tp = _object *] {
+/*     80      |       8 */            __base_type _M_b;
+                                       static const bool is_always_lock_free;
+
+                                       /* total size (bytes):    8 */
+                                   } pyobj_;
+
+                                   /* total size (bytes):    8 */
+                               } pyobj_slot_;
+/*     88      |       8 */    std::unique_ptr<c10::StorageExtraMeta> extra_meta_;
+
+                               /* total size (bytes):   96 */
+                             }
+⚠️ warning: Memory read failed for corefile section, 1048576 bytes at 0xffffdf47f000.
+Saved corefile /home/raihan/Downloads/memory-evidence/inference-3183.core

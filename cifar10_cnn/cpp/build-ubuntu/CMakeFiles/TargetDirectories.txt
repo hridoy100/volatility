@@ -1,0 +1,3 @@
+/home/raihan/Downloads/volatility/cifar10_cnn/cpp/build-ubuntu/CMakeFiles/cifar10_inference.dir
+/home/raihan/Downloads/volatility/cifar10_cnn/cpp/build-ubuntu/CMakeFiles/edit_cache.dir
+/home/raihan/Downloads/volatility/cifar10_cnn/cpp/build-ubuntu/CMakeFiles/rebuild_cache.dir
